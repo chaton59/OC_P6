@@ -1,0 +1,135 @@
+Etape 1 - Préparez, nettoyez et enrichissez les données
+
+Vous allez découvrir et préparer les données nécessaires à la construction de votre modèle de scoring. Cela inclut le nettoyage, la fusion des différentes sources, l'encodage des variables et la création de nouvelles features pertinentes. L'objectif est de constituer un dataset propre et enrichi, prêt pour l'entraînement. Vous devrez aussi analyser la qualité de vos variables et les déséquilibres dans les classes.
+
+ 
+Prérequis : 
+Avoir exploré les données brutes fournies.
+Avoir vérifié les formats et les valeurs manquantes.
+Avoir identifié les colonnes clés pour les jointures.
+Avoir pris en compte les enjeux métiers (par ex. déséquilibre des classes).
+
+Résultat attendu : 
+Un jeu de données propre, fusionné et enrichi, prêt à être utilisé pour l'entraînement.
+
+Recommandations : 
+Charger chaque fichier séparément et inspecter ses colonnes.
+Utiliser Pandas pour fusionner les jeux de données.
+Visualiser la distribution des classes cibles.
+Créer de nouvelles features à partir des variables existantes si nécessaire.
+Éviter de supprimer trop rapidement les colonnes avec des valeurs manquantes : explorer les possibilités d’imputation.
+
+ 
+
+Points de vigilance : 
+Oublier de vérifier les doublons.
+Supprimer des colonnes sans analyser leur importance métier.
+Imputer sans documenter ni justifier.
+Fusionner sans gérer les duplications ou pertes de lignes.
+Encoder sans faire attention au type de modèle prévu (ordinal vs. nominal).
+
+
+Outils : 
+Pandas
+Matplotlib et Seaborn pour la visualisation
+Scikit-learn pour le preprocessing
+Missingno pour visualiser les valeurs manquantes
+
+
+Etape 2 - Traquez les expérimentations avec MLFlow
+
+Vous allez tracer vos expériences de modélisation avec MLflow : métriques, hyperparamètres, versions de modèles, etc. Vous utiliserez l’interface web pour visualiser vos runs et comparer les modèles.
+
+Prérequis : 
+Avoir installé MLflow.
+Avoir configuré votre projet localement.
+
+Résultat attendu : 
+Des runs visibles dans l’UI MLflow avec les paramètres testés et les scores obtenus.
+
+Recommandations : 
+Commencer par intégrermlflow.start_run()dans vos notebooks.
+Logger les métriques et les paramètres principaux.
+Utilisermlflow.autolog()si vous utilisez des modèles compatibles.
+Activer l’UI avecmlflow uipour visualiser les résultats.
+
+Points de vigilance : 
+Lancer MLflow sans environnement isolé : cela peut créer des conflits de versions de bibliothèques. Utiliser un environnement virtuel.
+Oublier d’annoter les expériences (tags, noms, commentaires) : il serait difficile ensuite de comprendre les résultats dans l’interface MLflow.
+Ne pas versionner les modèles enregistrés empêche de reproduire les résultats et de gérer leur cycle de vie.
+Sauvegarder des fichiers inutiles ou trop volumineux dans MLflow encombre le système et ralentit l’interface.
+
+Outils : 
+MLFlow
+
+
+Etape 3 - Modélisez et expérimentez avec plusieurs algorithmes
+
+Vous allez entraîner différents modèles de classification et comparer leurs performances sur des métriques métiers et classiques. L’objectif est de tester plusieurs familles de modèles (forêts, boosting, MLP, etc.) et de construire une première version de votre pipeline d’apprentissage. Vous devez aussi intégrer une validation croisée pour évaluer leur robustesse.
+
+Prérequis : 
+Avoir préparé un dataset propre et prêt à l’entraînement.
+Avoir compris la nature déséquilibrée du jeu de données.
+Avoir identifié les variables cibles et explicatives.
+Avoir installé les bibliothèques de machine learning nécessaires.
+Avoir paramétré MLFlow.
+
+Résultat attendu : 
+Un ou plusieurs modèles entraînés, avec validation croisée et premières métriques d’évaluation.
+
+Recommandations : 
+Commencer par tester des modèles simples (Logistic Regression, Random Forest).
+Comparer ensuite avec des modèles plus puissants (XGBoost, LightGBM, MLP).
+UtiliserStratifiedKFoldpour conserver la distribution de classes et pour garantir une évaluation robuste.
+Entraîner les modèles dans des notebooks clairs et documentés.
+Stocker les scores et les hyperparamètres testés.
+
+Points de vigilance : 
+- Ne pas tester sans validation croisée.
+     - Évaluer un modèle uniquement sur un split "train/test" unique peut donner des résultats très variables selon le hasard du découpage. Le risque est d’avoir une mauvaise estimation de la performance réelle et d’avoir un choix de modèle performant sur un split mais mauvais en généralisation.
+- Ne pas comparer des modèles sur des métriques inadaptées. Il vaut mieux utiliser Utiliser des métriques adaptées comme :
+     -AUC-ROC,
+     - Recall sur la classe minoritaire,
+     - F1-score,
+     - Coût métier personnalisé (FN > FP).
+- Oublier la stratification sur les classes cibles : en effet, les algorithmes peuvent être biaisés vers la classe majoritaire si le dataset contient beaucoup plus de bons clients que de mauvais. Utilisez la pondération des classes. 
+- Ne pas gérer le déséquilibre des classes biaise l’apprentissage. Utiliser unclass_weightou appliquer du sur-échantillonnage comme SMOTE.
+
+Outils : 
+Scikit-learn
+XGBoost
+LightGBM
+
+
+Etape 4 - Optimisez les hyper paramètres et le seuil métier
+
+Vous allez optimiser les hyperparamètres des modèles pour maximiser leurs performances selon des critères métier. Vous définirez aussi un seuil de décision optimal basé sur le coût des erreurs. L’objectif est de minimiser le coût métier total (FN > FP).
+
+ 
+Prérequis : 
+Avoir entraîné plusieurs modèles.
+Avoir comparé leurs performances de base.
+Avoir compris la notion de coût d’erreur.
+Avoir défini une fonction de coût métier.
+
+
+Résultat attendu : 
+Un modèle avec hyperparamètres optimisés et seuil métier ajusté.
+
+
+Recommandations : 
+UtiliserGridSearchCVouOptunapour l’optimisation.
+Définir une fonction de coût pondérant FN et FP.
+Tester différents seuils de classification (de 0.1 à 0.9).
+Tracer la courbe coût vs. seuil pour choisir le meilleur.
+
+Points de vigilance : 
+Garder le seuil par défaut (0.5) sans justification. Ce seuil ne reflète pas nécessairement les enjeux métiers. Il faut optimiser le seuil en fonction du coût FN vs FP.
+Oublier de tracer le score métier en fonction du seuil : cela empêche d’identifier la meilleure décision.
+Optimiser uniquement sur l’AUC ou l’accuracy.
+Oublier d’adapter les métriques au business.
+Choisir un modèle sans tester sa robustesse.
+
+Outils : 
+Scikit-learn GridSearchCV
+Optuna

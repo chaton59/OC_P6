@@ -1,0 +1,59 @@
+Vous êtes Data Scientist au sein d'une société financière, nommée "Prêt à dépenser", qui propose des crédits à la consommation pour des personnes ayant peu ou pas du tout d'historique de prêt.
+
+ 
+
+L’entreprise souhaite mettre en œuvre un outil de “scoring crédit” pour calculer la probabilité qu’un client rembourse son crédit, puis classifie la demande en crédit accordé ou refusé. Elle souhaite donc développer un algorithme de classification en s’appuyant sur des sources de données variées (données comportementales, données provenant d'autres institutions financières, etc.)
+
+ 
+
+Votre mission :
+
+1. Construire et optimiser un modèle de scoring qui donnera une prédiction sur la probabilité de faillite d'un client de façon automatique.
+
+2. Analyser les features qui contribuent le plus au modèle, d’une manière générale (feature importance globale) et au niveau d’un client (feature importance locale), afin, dans un soucis de transparence, de permettre à un chargé d’études de mieux comprendre le score attribué par le modèle.
+
+3. Mettre en œuvre une approche globale MLOps de bout en bout, du tracking des expérimentations à la pré-production du modèle.
+
+Pour aller plus vite, inspirez vous des kernels suivants : 
+Pour l’analyse exploratoire : https://www.kaggle.com/code/willkoehrsen/start-here-a-gentle-introduction/notebook
+Pour la préparation des données et le feature engineering : https://www.kaggle.com/code/jsaguiar/lightgbm-with-simple-features/script
+
+ 
+ --- DEBUT MAIL :  --- 
+
+De : Michaël
+À : moi
+Objet : Besoins et conseils pour l’élaboration d’un outil de credit scoring 
+
+Bonjour,
+
+Afin de pouvoir faire évoluer régulièrement le modèle, je souhaite tester la mise en œuvre une démarche de type MLOps d’automatisation et d’industrialisation de la gestion du cycle de vie du modèle. 
+
+Vous trouverez en pièce jointe la liste d’outils à utiliser pour créer une plateforme MLOps qui s’appuie sur des outils Open Source. 
+
+Je souhaite que vous puissiez mettre en oeuvre au minimum les étapes orientées MLOps suivantes : 
+- Dans le notebook d’entraînement des modèles, générer à l’aide de MLFlow un tracking d'expérimentations.
+- Lancer l’interface web “UI MLFlow" d'affichage des résultats du tracking.
+- Réaliser avec MLFlow un stockage centralisé des modèles dans un “model registry”.
+- Tester le serving MLFlow.
+
+J’ai également rassemblé des conseils pour vous aider à vous lancer dans ce projet !
+
+Concernant l’élaboration du modèle soyez vigilant sur deux points spécifiques au contexte métier : 
+- Le déséquilibre entre le nombre de bons et de moins bons clients doit être pris en compte pour élaborer un modèle pertinent, avec une méthode au choix.
+- Le déséquilibre du coût métier entre un faux négatif (FN - mauvais client prédit bon client : donc crédit accordé et perte en capital) et un faux positif (FP - bon client prédit mauvais : donc refus crédit et manque à gagner en marge).
+    - Vous pourrez supposer, par exemple, que le coût d’un FN est dix fois supérieur au coût d’un FP.
+    - Vous créerez un score “métier” (minimisation du coût d’erreur de prédiction des FN et FP) pour comparer les modèles, afin de choisir le meilleur modèle et ses meilleurs hyperparamètres. Attention cette minimisation du coût métier doit passer par l’optimisation du seuil qui détermine, à partir d’une probabilité, la classe 0 ou 1 (un “predict” suppose un seuil à 0.5 qui n’est pas forcément l’optimum).
+    - En parallèle, maintenez pour comparaison et contrôle des mesures plus techniques, telles que l’AUC et l’accuracy.
+
+D’autre part je souhaite que vous mettiez en œuvre une démarche d’élaboration des modèles avec Cross-Validation et optimisation des hyperparamètres, via GridsearchCV ou équivalent.
+
+Un dernier conseil : si vous obtenez des scores supérieurs au 1er du challenge Kaggle (AUC > 0.82), posez-vous la question si vous n’avez pas de l’overfitting dans votre modèle !
+
+Bon courage !
+
+Michaël
+
+Pièce-jointe : https://s3.eu-west-1.amazonaws.com/course.oc-static.com/projects/1047_Data+Scientist+ML/P6_DSML_1047/Outils+Open+Source+pour+e%CC%81laborer+une+plateforme+MLOps.pdf
+
+ --- FIN MAIL. --- 
