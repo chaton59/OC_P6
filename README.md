@@ -7,42 +7,35 @@ Projet de prédiction du risque de défaut de paiement pour Home Credit. Ce proj
 ## 🏗️ Structure du projet
 
 ```
-projet_credit_scoring/
+OC_P6/
 ├── data/
-│   ├── raw/                  # Données brutes (non versionnées)
-│   │   └── .gitkeep
-│   └── processed/            # Datasets prétraités (non versionnés)
-│       └── .gitkeep
-├── notebooks/                # Notebooks d'exploration et expérimentation
-│   ├── 01_exploration.ipynb
-│   ├── 02_preparation_features.ipynb
-│   ├── 03_modeling_mlflow.ipynb
-│   ├── 04_hyperopt_threshold.ipynb
-│   └── 05_interpretability.ipynb
-├── src/                      # Code Python réutilisable
+│   ├── raw/                          # Données brutes (non versionnées)
+│   │   ├── application_train.csv
+│   │   ├── application_test.csv
+│   │   ├── bureau.csv
+│   │   ├── bureau_balance.csv
+│   │   ├── credit_card_balance.csv
+│   │   ├── installments_payments.csv
+│   │   ├── POS_CASH_balance.csv
+│   │   └── previous_application.csv
+│   └── processed/                    # Datasets prétraités (non versionnés)
+│       ├── features_full.csv
+│       ├── features_train.csv
+│       └── features_test.csv
+├── notebooks/                        # Notebooks d'apprentissage
+│   ├── 01_exploration.ipynb         # EDA complète
+│   └── 02_preparation_features.ipynb # Feature Engineering
+├── src/                              # Code Python réutilisable
 │   ├── __init__.py
-│   ├── data/
-│   │   ├── load_data.py
-│   │   ├── clean_and_merge.py
-│   │   └── feature_engineering.py
-│   ├── models/
-│   │   ├── train.py
-│   │   ├── evaluate.py
-│   │   └── predict.py
-│   ├── utils/
-│   │   ├── metrics.py        # Fonction de coût métier
-│   │   └── mlflow_helpers.py
-│   └── config.py             # Configuration globale
-├── models/                   # Modèles sauvegardés localement
-├── mlruns/                   # Tracking MLFlow
-├── experiments/              # Artefacts MLFlow
-├── tests/                    # Tests unitaires
-│   └── test_preprocessing.py
-├── pyproject.toml            # Configuration projet et dépendances (UV)
-├── .python-version           # Version Python (3.12)
-├── .gitignore
+│   └── data/
+│       └── load_data.py              # Fonction de chargement des données
+├── projet/                           # Documents de mission
+│   ├── mission.txt
+│   └── etapes.txt
+├── pyproject.toml                    # Configuration projet et dépendances (UV)
+├── .gitignore                        # Protège les données
 ├── README.md
-└── serve_model.py            # Script de serving MLFlow
+└── uv.lock                           # Lock des dépendances
 ```
 
 ## 🚀 Installation
@@ -98,82 +91,68 @@ Téléchargez les fichiers suivants et placez-les dans `data/raw/`:
 jupyter notebook notebooks/01_exploration.ipynb
 ```
 
-### 2. Préparation des features
+**Contenu :**
+- Chargement et première inspection des données
+- Analyse de la variable cible (déséquilibre des classes)
+- Analyse des valeurs manquantes
+- Exploration des corrélations
+- Détection d'anomalies (DAYS_EMPLOYED = 365243)
+- Analyse des variables EXT_SOURCE (prédicteurs clés)
+
+### 2. Préparation des features (Feature Engineering)
 
 ```bash
 jupyter notebook notebooks/02_preparation_features.ipynb
 ```
 
-### 3. Modélisation avec MLflow
+**Contenu :**
+- Chargement et fusion de 7 tables de données
+- Nettoyage des données (valeurs aberrantes, sentinelles)
+- Encodage des variables catégorielles (One-Hot encoding)
+- Création de features par agrégation (min, max, mean, sum, var)
+- Features spécifiques :
+  - Ratios et pourcentages (ex: INCOME_CREDIT_PERC, PAYMENT_RATE)
+  - Comportement de paiement (DPD, DBD)
+  - Crédits actifs vs fermés
+  - Demandes approuvées vs refusées
+- Séparation train/test
+- Sauvegarde des datasets préparés
 
-```bash
-# Lancer l'UI MLflow (optionnel)
-mlflow ui
+**Output :** 
+- `data/processed/features_full.csv` (~800+ features)
+- `data/processed/features_train.csv`
+- `data/processed/features_test.csv`
 
-# Puis ouvrir le notebook
-jupyter notebook notebooks/03_modeling_mlflow.ipynb
-```
+## 📝 Approche
 
-### 4. Optimisation des hyperparamètres
+Ce projet suit l'approche du kernel Kaggle **"LightGBM with Simple Features"** de [jsaguiar](https://www.kaggle.com/jsaguiar), qui a obtenu d'excellents résultats sur cette compétition.
 
-```bash
-jupyter notebook notebooks/04_hyperopt_threshold.ipynb
-```
+**Stratégie :**
+- Modulabilité : une fonction pour chaque table de données
+- Agrégations statistiques sur les données groupées
+- Création de ratios et pourcentages entre variables importantes
+- Features spécifiques pour différents profils (crédits actifs/fermés, demandes approuvées/refusées)
 
-### 5. Interprétabilité
-
-```bash
-jupyter notebook notebooks/05_interpretability.ipynb
-```
-
-uv run pytest
-
-# Avec couverture détaillée
-uv run pytest
-pytest tests/
-
-# Avec couverture
-pytest tests/ --cov=src --cov-report=html
-```
-
-## 📈 MLflow
-
-uv run Le projet utilise MLflow pour le tracking des expériences.
-
-```bash
-# Lancer l'interface MLflow
-mlflow ui
-
-# Puis ouvrir http://localhost:5000
-```
-
-## 🔧 Serving du modèle
-uv run 
-Pour servir un modèle en production:
-
-```bash
-python serve_model.py --model-uri models:/credit_scoring/Production --port 5001
-```
-
-Endpoints disponibles:
-- `GET /health` - Vérifier le statut
-- `POST /predict` - Faire des prédictions
-- `POST /predict_proba` - Obtenir les probabilités
-
-## 📝 Configuration
-
-Les paramètres principaux sont dans [src/config.py](src/config.py):
-- Coûts métier (faux positifs/négatifs)
-- Chemins des données
-- Paramètres des modèles par défaut
-
+**Approche de modélisation prévue :**
+1. Feature Selection : identifier les features les plus importantes
+2. Modélisation : LightGBM avec validation croisée (K-Fold)
+3. Optimisation : tuning des hyperparamètres
+4. Évaluation : métriques (ROC-AUC, coûts métier)
+5. Prédictions : générer les prédictions pour le test set
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues! Merci de:
 1. Créer une branche pour votre feature
-2. Écrire des tests pour votre code
-3. Respecter le style de code (black, flake8)
+2. Respecter le style de code
+3. Mettre à jour la documentation
 
 ## 📄 Licence
 
 Ce projet est à usage éducatif.
+
+## 🎓 Status d'apprentissage
+
+**Phase actuelle :** Exploration et Feature Engineering  
+**Prochaines phases :** Modélisation et Optimisation
+
+Ce projet est conçu comme un parcours d'apprentissage en machine learning appliqué au credit scoring.
