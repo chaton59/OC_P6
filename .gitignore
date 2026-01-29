@@ -44,15 +44,7 @@ mlruns/
 mlartifacts/
 
 # Data files (trop volumineux pour Git)
-data/raw/*.csv
-data/raw/*.zip
-data/processed/*.pkl
-data/processed/*.csv
-data/processed/*.parquet
-
-# Keep .gitkeep files
-!data/raw/.gitkeep
-!data/processed/.gitkeep
+data/
 
 # Models
 models/*.pkl
