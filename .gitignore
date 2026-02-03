@@ -42,6 +42,8 @@ ipython_config.py
 # MLflow
 mlruns/
 mlartifacts/
+mlflow.db
+notebooks/mlflow.db
 
 # Data files (trop volumineux pour Git)
 data/
