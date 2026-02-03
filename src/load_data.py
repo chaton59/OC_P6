@@ -39,7 +39,7 @@ def _find_project_root() -> Path:
     try:
         # Cas classique : exécuté comme module .py
         return Path(__file__).resolve().parent.parent.parent
-    except NameError:
+    except (NameError, RuntimeError):
         # Cas notebook / interactive
         current = Path.cwd()
         # On remonte jusqu'à trouver le dossier contenant data/raw/application_train.csv
@@ -47,6 +47,19 @@ def _find_project_root() -> Path:
             candidate = p / "data" / "raw" / "application_train.csv"
             if candidate.exists():
                 return p
+        
+        # Fallback: cherche un dossier nommé OC_P6 avec data/raw dedans
+        for p in [current] + list(current.parents):
+            candidate = p / "data" / "raw" / "application_train.csv"
+            if candidate.exists():
+                return p
+            # Cherche aussi dans OC_P6 s'il est un sous-dossier
+            oc_p6 = p / "OC_P6"
+            if oc_p6.exists():
+                candidate = oc_p6 / "data" / "raw" / "application_train.csv"
+                if candidate.exists():
+                    return oc_p6
+        
         raise FileNotFoundError("Impossible de trouver la racine du projet. Vérifie la structure des dossiers.")
 
 
@@ -63,7 +76,25 @@ def load_raw_data(data_dir: str | None = None) -> DataContainer:
         raw_data['application_train']  # Accès par clé
     """
     if data_dir is None:
-        data_path = BASE_DIR / "data" / "raw"
+        # First try to use provided BASE_DIR
+        if not (BASE_DIR / "data" / "raw" / "application_train.csv").exists():
+            # If BASE_DIR doesn't have data, search from current working directory
+            current = Path.cwd()
+            found = False
+            for p in [current] + list(current.parents):
+                candidate_file = p / "data" / "raw" / "application_train.csv"
+                if candidate_file.exists():
+                    data_path = p / "data" / "raw"
+                    found = True
+                    break
+            
+            if not found:
+                raise FileNotFoundError(
+                    f"Data files not found. Searched in {BASE_DIR / 'data' / 'raw'} "
+                    f"and from {current} upwards."
+                )
+        else:
+            data_path = BASE_DIR / "data" / "raw"
     else:
         data_path = Path(data_dir)
     
