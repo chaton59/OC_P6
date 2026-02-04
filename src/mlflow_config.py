@@ -27,6 +27,9 @@ def configure_mlflow(
     """
     if autolog:
         mlflow.autolog(log_models=log_models)
+    else:
+        # Désactiver tous les autologs explicitement
+        mlflow.autolog(disable=True)
 
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name)
