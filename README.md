@@ -123,6 +123,53 @@ jupyter notebook notebooks/02_preparation_features.ipynb
 - `data/processed/features_train.csv`
 - `data/processed/features_test.csv`
 
+### 3. Modélisation LightGBM
+
+```bash
+jupyter notebook notebooks/03_LGBM.ipynb
+```
+
+**Contenu :**
+- Modélisation LightGBM avec validation croisée stratifiée
+- Gestion du déséquilibre des classes
+- Optimisation d’hyperparamètres (Optuna)
+- Optimisation du seuil métier (coût FN vs FP)
+- Tracking des expérimentations avec MLflow
+
+### 4. Régression logistique (baseline + déséquilibre)
+
+```bash
+jupyter notebook notebooks/04_regression.ipynb
+```
+
+**Contenu :**
+- Modèle baseline
+- Gestion du déséquilibre (class_weight, SMOTE)
+- Comparaison des versions
+- Logging MLflow des métriques et modèles
+
+### 5. Interprétation des modèles
+
+```bash
+jupyter notebook notebooks/05_model_interpretation.ipynb
+```
+
+**Contenu :**
+- Importance globale des features (LightGBM)
+- Importance par permutation
+- Interprétation locale via SHAP
+
+### 6. Évaluation finale
+
+```bash
+jupyter notebook notebooks/06_final_evaluation.ipynb
+```
+
+**Contenu :**
+- Évaluation finale sur jeu de test (ou split de validation si test indisponible)
+- Optimisation du seuil métier
+- Comparaison synthétique des modèles
+
 ## 📝 Approche
 
 Ce projet suit l'approche du kernel Kaggle **"LightGBM with Simple Features"** de [jsaguiar](https://www.kaggle.com/jsaguiar), qui a obtenu d'excellents résultats sur cette compétition.
