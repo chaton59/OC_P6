@@ -1,0 +1,18 @@
+# Fichiers lourds et inutiles en déploiement
+data/
+datasets/
+mlruns/
+models/*.pkl
+models/*.txt
+models/*.joblib
+*.csv
+*.parquet
+notebooks/
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+.git
+.gitignore
+venv/
+.env
+uv.lock  # optionnel, si tu gardes uv localement
