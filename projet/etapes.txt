@@ -1,135 +1,115 @@
-Etape 1 - Préparez, nettoyez et enrichissez les données
+Étape 2 - Déployez le modèle via une API et automatisez avec CI/CD
 
-Vous allez découvrir et préparer les données nécessaires à la construction de votre modèle de scoring. Cela inclut le nettoyage, la fusion des différentes sources, l'encodage des variables et la création de nouvelles features pertinentes. L'objectif est de constituer un dataset propre et enrichi, prêt pour l'entraînement. Vous devrez aussi analyser la qualité de vos variables et les déséquilibres dans les classes.
+Description: Développez une API (Gradio, FastAPI) pour exposer votre modèle. L'API doit recevoir des données d'entrée et retourner une prédiction. Conteneurisez cette API avec Docker. Ensuite, créez un pipeline d'Intégration Continue et de Déploiement Continu (CI/CD) (ex: GitHub Actions). Ce pipeline devra automatiquement :
+	1.Exécuter des tests (unitaires, intégration) sur votre code API et modèle.
+	2.Construire l'image Docker de l'API si les tests sont concluants.
+	3.Déployer l'image conteneurisée sur un environnement cible (simulé ou réel).
 
- 
-Prérequis : 
-Avoir exploré les données brutes fournies.
-Avoir vérifié les formats et les valeurs manquantes.
-Avoir identifié les colonnes clés pour les jointures.
-Avoir pris en compte les enjeux métiers (par ex. déséquilibre des classes).
+Prérequis:
+	Avoir le code versionné sur une plateforme supportant la CI/CD.
+	Avoir choisi un framework d'API.
+	Avoir installé Docker.
+	
+Résultats attendus :
+	Un code source fonctionnel pour l'API.
+	UnDockerfilepour créer une image Docker de l'API.
+	Un pipeline CI/CD fonctionnel et automatisé visible sur la plateforme, qui déploie l'API.
+	Des tests automatisés intégrés au pipeline.
 
-Résultat attendu : 
-Un jeu de données propre, fusionné et enrichi, prêt à être utilisé pour l'entraînement.
+Recommandations:
+	Commencez par une API simple et un pipeline basique, puis itérez.
+	Incluez une gestion des erreurs dans l'API et documentez-la (ex: Swagger).
+	Séparez les étapes de build, test et déploiement dans le pipeline CI/CD.
+	Utilisez des secrets pour gérer les credentials.
+	Utilisez Hugging Face Spaces qui est particulièrement simple d’utilisation pour ce genre de déploiement.
 
-Recommandations : 
-Charger chaque fichier séparément et inspecter ses colonnes.
-Utiliser Pandas pour fusionner les jeux de données.
-Visualiser la distribution des classes cibles.
-Créer de nouvelles features à partir des variables existantes si nécessaire.
-Éviter de supprimer trop rapidement les colonnes avec des valeurs manquantes : explorer les possibilités d’imputation.
+Points de vigilance:
+	Assurez-vous que les tests sont fiables et couvrent les cas critiques, par exemple :
+		des entrées avec des données manquantes pour des champs obligatoires,
+		des valeurs hors des plages attendues (ex: un âge de -5 ans ou un revenu de 0 si ce n'est pas censé être possible),
+		ou des types de données incorrects (ex: du texte là où un chiffre est attendu).
 
- 
+	Sécurisez l'API et le pipeline (gestion des secrets, validation d'entrée).
+	Gérez correctement le chargement du modèle dans l'API.
+		Lorsque vous intégrez un modèle de machine learning dans une API, il est crucial de ne pas charger le modèle à chaque requête. 
+		Cela entraînerait des lenteurs importantes voire un échec sous charge. 
+		Chargez le modèle une seule fois, au moment du démarrage de l’API, puis réutilisez le dans toutes les requêtes.
 
-Points de vigilance : 
-Oublier de vérifier les doublons.
-Supprimer des colonnes sans analyser leur importance métier.
-Imputer sans documenter ni justifier.
-Fusionner sans gérer les duplications ou pertes de lignes.
-Encoder sans faire attention au type de modèle prévu (ordinal vs. nominal).
+	Cela permet de :
+		Réduire le temps de réponse de l’API.
+		Éviter une surcharge mémoire.
+		Améliorer la scalabilité.
+		Vérifiez que l'environnement de déploiement dispose des ressources nécessaires.
 
-
-Outils : 
-Pandas
-Matplotlib et Seaborn pour la visualisation
-Scikit-learn pour le preprocessing
-Missingno pour visualiser les valeurs manquantes
-
-
-Etape 2 - Traquez les expérimentations avec MLFlow
-
-Vous allez tracer vos expériences de modélisation avec MLflow : métriques, hyperparamètres, versions de modèles, etc. Vous utiliserez l’interface web pour visualiser vos runs et comparer les modèles.
-
-Prérequis : 
-Avoir installé MLflow.
-Avoir configuré votre projet localement.
-
-Résultat attendu : 
-Des runs visibles dans l’UI MLflow avec les paramètres testés et les scores obtenus.
-
-Recommandations : 
-Commencer par intégrermlflow.start_run()dans vos notebooks.
-Logger les métriques et les paramètres principaux.
-Utilisermlflow.autolog()si vous utilisez des modèles compatibles.
-Activer l’UI avecmlflow uipour visualiser les résultats.
-
-Points de vigilance : 
-Lancer MLflow sans environnement isolé : cela peut créer des conflits de versions de bibliothèques. Utiliser un environnement virtuel.
-Oublier d’annoter les expériences (tags, noms, commentaires) : il serait difficile ensuite de comprendre les résultats dans l’interface MLflow.
-Ne pas versionner les modèles enregistrés empêche de reproduire les résultats et de gérer leur cycle de vie.
-Sauvegarder des fichiers inutiles ou trop volumineux dans MLflow encombre le système et ralentit l’interface.
-
-Outils : 
-MLFlow
+Outils: 
+Gradio/FastAPI
+Docker
+Postman/curl
+GitHub Actions/GitLab CI/Jenkins
+Pytest
+Plateformes de déploiement (Hugging Face, Heroku, Google Cloud Run...).
 
 
-Etape 3 - Modélisez et expérimentez avec plusieurs algorithmes
 
-Vous allez entraîner différents modèles de classification et comparer leurs performances sur des métriques métiers et classiques. L’objectif est de tester plusieurs familles de modèles (forêts, boosting, MLP, etc.) et de construire une première version de votre pipeline d’apprentissage. Vous devez aussi intégrer une validation croisée pour évaluer leur robustesse.
+Étape 3 - Implémentez le stockage et l'analyse des données de production
 
-Prérequis : 
-Avoir préparé un dataset propre et prêt à l’entraînement.
-Avoir compris la nature déséquilibrée du jeu de données.
-Avoir identifié les variables cibles et explicatives.
-Avoir installé les bibliothèques de machine learning nécessaires.
-Avoir paramétré MLFlow.
+Description: Concevez et mettez en place une solution pour stocker les données pertinentes générées par votre API en production : logs d'appels, inputs, outputs, et temps d'exécution (à minima). Mettez en œuvre une analyse automatique de ces données pour détecter des anomalies, notamment la dérive des données (data drift), et des problèmes opérationnels (taux d'erreur, latence anormale).
 
-Résultat attendu : 
-Un ou plusieurs modèles entraînés, avec validation croisée et premières métriques d’évaluation.
+Un prototype (PoC) de cette solution peut être réalisé entièrement en local si vous n’avez pas de service cloud à votre disposition. Tant que tous les aspects requis pour cette partie sont correctement adressés, cela est suffisant. Exemple: les logs peuvent être générés par l’API (cloud) puis téléchargés, stockés et analysés localement. Les données collectées par l’API doivent permettre une analyse ultérieure du drift : assurez-vous de stocker les inputs/outputs du modèle et les métriques clés.
 
-Recommandations : 
-Commencer par tester des modèles simples (Logistic Regression, Random Forest).
-Comparer ensuite avec des modèles plus puissants (XGBoost, LightGBM, MLP).
-UtiliserStratifiedKFoldpour conserver la distribution de classes et pour garantir une évaluation robuste.
-Entraîner les modèles dans des notebooks clairs et documentés.
-Stocker les scores et les hyperparamètres testés.
+Prérequis:
+Avoir déployé l'API via le pipeline CI/CD.
+Avoir identifié les données clés à logger depuis l'API et l'infrastructure.
 
-Points de vigilance : 
-- Ne pas tester sans validation croisée.
-     - Évaluer un modèle uniquement sur un split "train/test" unique peut donner des résultats très variables selon le hasard du découpage. Le risque est d’avoir une mauvaise estimation de la performance réelle et d’avoir un choix de modèle performant sur un split mais mauvais en généralisation.
-- Ne pas comparer des modèles sur des métriques inadaptées. Il vaut mieux utiliser Utiliser des métriques adaptées comme :
-     -AUC-ROC,
-     - Recall sur la classe minoritaire,
-     - F1-score,
-     - Coût métier personnalisé (FN > FP).
-- Oublier la stratification sur les classes cibles : en effet, les algorithmes peuvent être biaisés vers la classe majoritaire si le dataset contient beaucoup plus de bons clients que de mauvais. Utilisez la pondération des classes. 
-- Ne pas gérer le déséquilibre des classes biaise l’apprentissage. Utiliser unclass_weightou appliquer du sur-échantillonnage comme SMOTE.
+Résultat attendu:
+Une solution de stockage des données de production décrite et/ou implémentée.
+Un script ou notebook réalisant l'analyse automatique des données stockées (détection de drift, anomalies).
+Une présentation de l'étude sur la dérive des données et les points de vigilances résultants.
 
-Outils : 
-Scikit-learn
-XGBoost
-LightGBM
+Recommandations:
+Configurez le logging structuré (ex: JSON) dans votre API.
+Utilisez des bibliothèques dédiées à la détection de drift (ex: Evidently AI, NannyML).
+Pensez à visualiser les résultats de l'analyse (ex: dashboard).
+
+Points de vigilance:
+Soyez conscient des contraintes de stockage et de coût.
+Assurez la conformité RGPD si nécessaire.
+La détection de drift nécessite une référence (données d'entraînement ou fenêtre stable (vous pouvez reprendre votre travail réalisé lors du projet Initiez-vous au MLOps partie 1).
+
+Outils: 
+Bibliothèques de logging Python, 
+Analyse des logs: Fluentd, Logstash
+Bases de données:  Elasticsearch, PostgreSQL
+Bibliothèques de détection de drift: Evidently AI, NannyML
+Outils de visualisation : Grafana, Kibana, Dash/Streamlit.
 
 
-Etape 4 - Optimisez les hyper paramètres et le seuil métier
 
-Vous allez optimiser les hyperparamètres des modèles pour maximiser leurs performances selon des critères métier. Vous définirez aussi un seuil de décision optimal basé sur le coût des erreurs. L’objectif est de minimiser le coût métier total (FN > FP).
+Étape 4 - Analysez et optimisez les performances du modèle
 
- 
-Prérequis : 
-Avoir entraîné plusieurs modèles.
-Avoir comparé leurs performances de base.
-Avoir compris la notion de coût d’erreur.
-Avoir défini une fonction de coût métier.
+Description: Maintenant que le modèle est déployé et monitoré, analysez ses performances réelles ou simulées en production. 
+Utilisez les données de monitoring (temps d’inférence, latence, utilisation CPU / GPU) et des outils de profiling pour identifier les goulots d’étranglement. 
+Testez des stratégies d'optimisation (quantification, optimisation de code, hardware) pour améliorer le temps d'inférence/réponse. 
+Intégrez la version optimisée dans votre dépôt et laissez le pipeline CI/CD la déployer. 
+Documentez les optimisations et leurs résultats.
 
+Prérequis:
+Avoir l'API déployée et un système de monitoring/logging en place (même basique)
 
-Résultat attendu : 
-Un modèle avec hyperparamètres optimisés et seuil métier ajusté.
+Résultats attendus :
+Un rapport détaillant les tests d'optimisation effectués post-déploiement, les résultats et les goulots d'étranglement identifiés.
+Une version optimisée du modèle déployée via le pipeline CI/CD.
+Une justification de la configuration finale (librairies, software, hardware).
+L'amélioration du temps d'inférence et de réponse est démontrée.
 
+Recommandations:
+Baser vos hypothèses d'optimisation sur les données de monitoring réelles.
+Documenter rigoureusement l'impact des optimisations sur la performance et la précision.
 
-Recommandations : 
-UtiliserGridSearchCVouOptunapour l’optimisation.
-Définir une fonction de coût pondérant FN et FP.
-Tester différents seuils de classification (de 0.1 à 0.9).
-Tracer la courbe coût vs. seuil pour choisir le meilleur.
+Points de vigilance:
+Assurez-vous que les optimisations n'introduisent pas de régressions (précision, biais).
+Validez la compatibilité des optimisations avec l'environnement de production.
 
-Points de vigilance : 
-Garder le seuil par défaut (0.5) sans justification. Ce seuil ne reflète pas nécessairement les enjeux métiers. Il faut optimiser le seuil en fonction du coût FN vs FP.
-Oublier de tracer le score métier en fonction du seuil : cela empêche d’identifier la meilleure décision.
-Optimiser uniquement sur l’AUC ou l’accuracy.
-Oublier d’adapter les métriques au business.
-Choisir un modèle sans tester sa robustesse.
-
-Outils : 
-Scikit-learn GridSearchCV
-Optuna
+Outils: 
+Outils de profiling (ex: cProfile). 
+Bibliothèques d'optimisation (ex: ONNX Runtime).

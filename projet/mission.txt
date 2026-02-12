@@ -1,59 +1,32 @@
-Vous êtes Data Scientist au sein d'une société financière, nommée "Prêt à dépenser", qui propose des crédits à la consommation pour des personnes ayant peu ou pas du tout d'historique de prêt.
+Comment allez-vous procéder ? 
+
+Cette mission simule la mise en production d'un modèle de scoring. Suivez les étapes pour réaliser vos livrables. Avant de démarrer, lisez attentivement la mission, consultez les étapes, et préparez vos questions pour la session de mentorat.
 
  
 
-L’entreprise souhaite mettre en œuvre un outil de “scoring crédit” pour calculer la probabilité qu’un client rembourse son crédit, puis classifie la demande en crédit accordé ou refusé. Elle souhaite donc développer un algorithme de classification en s’appuyant sur des sources de données variées (données comportementales, données provenant d'autres institutions financières, etc.)
+Prêt à mener la mission ? 
+
+Vous êtes Data Scientist dans l'entreprise "Prêt à Dépenser". Après avoir développé et versionné un modèle de scoring (Projet Initiez-vous au MLops), vous recevez un message Slack de Chloé Dubois, la Lead Data Scientist :
+
+" Salut ! Excellents résultats sur la dernière version du modèle de scoring ! Le département 'Crédit Express' est très impatient de l'utiliser pour traiter les nouvelles demandes en quasi temps réel. Il nous faut absolument une API fonctionnelle et déployable (Docker Ready!) d'ici la fin de la semaine prochaine. Peux-tu prioriser ça ?  On a aussi besoin d'un dashboard ou rapport de suivi pour vérifier que tout se passe bien une fois en prod (distribution des scores, temps de réponse, ce genre de choses). Tiens-moi au courant de ton plan d'action ! Merci ! "
+
+Vous voila donc chargé de piloter la mise en production effective du modèle de scoring. Cela inclut la création d'une API robuste, la conteneurisation pour un déploiement fluide, et la mise en place d'un monitoring proactif pour garantir la performance et la fiabilité du modèle dans le temps.
+
+
+En structurant vos pensées et en préparant votre to do list, vous rédigez la liste des livrables que vous allez concevoir et présenter à Chloé : 
+
+1. Un historique des versions retraçant la construction du projet que vous rendrez disponible dans votre github en consultant la liste des commits. 
+2. Des scripts : 
+    - Une API fonctionnelle (vous travaillerez probablement avec Gradio ou FastAPI) qui prend les données d'un client en entrée et retourne un score de prédiction. 
+    - Des tests unitaires automatisés.
+3. Un dockerfile pour la conteneurisation du code.
+4. Une analyse du Data Drift: 
+    - Un tableau de bord ou un rapport de monitoring (vous savez que vous pourrez le simuler dans un notebook ou via un outil comme Streamlit voire Dash) montrant des métriques clés (ex.: distribution des scores prédits, latence de l'API, temps d’inférence, etc.)
+    - Des screenshots de la solution de stockage des données de production.
+5. Un pipeline CI/CD: un fichier YAML (ou équivalent) démontrant l’automatisation de la mise en production et des tests lors d’un push sur la branche principale (à minima) du projet.
+6. Une documentation README expliquant comment lancer l'API et interpréter le monitoring.
+
+Dans ce projet, vous vous appuierez sur les livrables que vous avez réalisés lors du projet précédent intitulé Initiez-vous au MLOps (partie 1/2).Plus précisément, il s’agit de reprendre le modèle de scoring que vous avez développé, versionné et évalué précédemment avec MLflow. Ce modèle constitue désormais la base sur laquelle vous allez travailler pour le déployer en production.Vous devrez donc réutiliser les artefacts produits, les adapter si nécessaire, et construire autour un environnement complet de déploiement. 
 
  
-
-Votre mission :
-
-1. Construire et optimiser un modèle de scoring qui donnera une prédiction sur la probabilité de faillite d'un client de façon automatique.
-
-2. Analyser les features qui contribuent le plus au modèle, d’une manière générale (feature importance globale) et au niveau d’un client (feature importance locale), afin, dans un soucis de transparence, de permettre à un chargé d’études de mieux comprendre le score attribué par le modèle.
-
-3. Mettre en œuvre une approche globale MLOps de bout en bout, du tracking des expérimentations à la pré-production du modèle.
-
-Pour aller plus vite, inspirez vous des kernels suivants : 
-Pour l’analyse exploratoire : https://www.kaggle.com/code/willkoehrsen/start-here-a-gentle-introduction/notebook
-Pour la préparation des données et le feature engineering : https://www.kaggle.com/code/jsaguiar/lightgbm-with-simple-features/script
-
- 
- --- DEBUT MAIL :  --- 
-
-De : Michaël
-À : moi
-Objet : Besoins et conseils pour l’élaboration d’un outil de credit scoring 
-
-Bonjour,
-
-Afin de pouvoir faire évoluer régulièrement le modèle, je souhaite tester la mise en œuvre une démarche de type MLOps d’automatisation et d’industrialisation de la gestion du cycle de vie du modèle. 
-
-Vous trouverez en pièce jointe la liste d’outils à utiliser pour créer une plateforme MLOps qui s’appuie sur des outils Open Source. 
-
-Je souhaite que vous puissiez mettre en oeuvre au minimum les étapes orientées MLOps suivantes : 
-- Dans le notebook d’entraînement des modèles, générer à l’aide de MLFlow un tracking d'expérimentations.
-- Lancer l’interface web “UI MLFlow" d'affichage des résultats du tracking.
-- Réaliser avec MLFlow un stockage centralisé des modèles dans un “model registry”.
-- Tester le serving MLFlow.
-
-J’ai également rassemblé des conseils pour vous aider à vous lancer dans ce projet !
-
-Concernant l’élaboration du modèle soyez vigilant sur deux points spécifiques au contexte métier : 
-- Le déséquilibre entre le nombre de bons et de moins bons clients doit être pris en compte pour élaborer un modèle pertinent, avec une méthode au choix.
-- Le déséquilibre du coût métier entre un faux négatif (FN - mauvais client prédit bon client : donc crédit accordé et perte en capital) et un faux positif (FP - bon client prédit mauvais : donc refus crédit et manque à gagner en marge).
-    - Vous pourrez supposer, par exemple, que le coût d’un FN est dix fois supérieur au coût d’un FP.
-    - Vous créerez un score “métier” (minimisation du coût d’erreur de prédiction des FN et FP) pour comparer les modèles, afin de choisir le meilleur modèle et ses meilleurs hyperparamètres. Attention cette minimisation du coût métier doit passer par l’optimisation du seuil qui détermine, à partir d’une probabilité, la classe 0 ou 1 (un “predict” suppose un seuil à 0.5 qui n’est pas forcément l’optimum).
-    - En parallèle, maintenez pour comparaison et contrôle des mesures plus techniques, telles que l’AUC et l’accuracy.
-
-D’autre part je souhaite que vous mettiez en œuvre une démarche d’élaboration des modèles avec Cross-Validation et optimisation des hyperparamètres, via GridsearchCV ou équivalent.
-
-Un dernier conseil : si vous obtenez des scores supérieurs au 1er du challenge Kaggle (AUC > 0.82), posez-vous la question si vous n’avez pas de l’overfitting dans votre modèle !
-
-Bon courage !
-
-Michaël
-
-Pièce-jointe : https://s3.eu-west-1.amazonaws.com/course.oc-static.com/projects/1047_Data+Scientist+ML/P6_DSML_1047/Outils+Open+Source+pour+e%CC%81laborer+une+plateforme+MLOps.pdf
-
- --- FIN MAIL. --- 
+De plus, nous vous suggérons de travailler avec les deux outils présentés dans les  ressources pédagogiques de ce projet actuel : Streamlit et Gradio. Vous êtes néanmoins libre de travailler avec d’autres outils si vous le souhaitez mais vous penserez à expliquer vos choix techniques pendant votre soutenance avec l’évaluateur.
