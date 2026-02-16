@@ -1,0 +1,52 @@
+name: CI/CD Pipeline
+
+# Run CI on changes to main and dev branches and PRs targeting them.
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repository code.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Set up Python 3.11 for tests.
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Install dependencies and test tooling.
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-inference.txt
+          pip install pytest pytest-cov
+
+      # Run test suite with coverage.
+      - name: Run tests
+        run: pytest --cov=app -v
+
+  build-docker:
+    # Only build if tests succeed.
+    needs: test
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repository code.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Optional: set up Python (not required for Docker build).
+      - name: Setup Python (optional)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Build Docker image locally (no registry push).
+      - name: Build Docker image
+        run: docker build -t api .
