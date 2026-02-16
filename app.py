@@ -4,15 +4,13 @@ import json
 from typing import Any, Dict
 
 import gradio as gr
-import mlflow
-import mlflow.lightgbm
+import lightgbm as lgb
 import pandas as pd
 
 
 # Load the model once at startup for efficiency.
-# If the "Production" stage is not available, MLflow will fall back to the latest version.
-MODEL_URI = "models:/LightGBM/Production"
-MODEL = mlflow.lightgbm.load_model(MODEL_URI)
+# Use a local model file for portability in Docker/Hugging Face deployments.
+MODEL = lgb.Booster(model_file="models/lightgbm.txt")
 
 
 def _validate_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -140,4 +138,5 @@ def build_demo() -> gr.Blocks:
 demo = build_demo()
 
 if __name__ == "__main__":
-	demo.launch()
+	# server_name="0.0.0.0" required for Docker/HF Spaces (listen on all interfaces)
+	demo.launch(server_name="0.0.0.0", server_port=7860)

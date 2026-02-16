@@ -55,16 +55,32 @@ if model_uri is None:
 # 3) Sinon, fallback sur le dernier run de l'expérience
 if model_uri is None:
 	experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME", DEFAULT_EXPERIMENT_NAME)
-	experiment = mlflow.get_experiment_by_name(experiment_name)
+	try:
+		experiment = mlflow.get_experiment_by_name(experiment_name)
+	except Exception:
+		experiment = None
 	if experiment:
-		runs = mlflow.search_runs(
-			[experiment.experiment_id],
-			order_by=["start_time DESC"],
-			max_results=1,
-		)
-		if not runs.empty:
+		try:
+			runs = mlflow.search_runs(
+				[experiment.experiment_id],
+				order_by=["start_time DESC"],
+				max_results=1,
+			)
+		except Exception:
+			runs = None
+		if runs is not None and not runs.empty:
 			run_id = runs.loc[0, "run_id"]
 			model_uri = f"runs:/{run_id}/model"
+
+# 4) Fallback filesystem si la base MLflow est partiellement corrompue
+if model_uri is None:
+	mlruns_dir = Path("mlruns")
+	if mlruns_dir.exists():
+		mlmodel_files = sorted(
+			mlruns_dir.rglob("MLmodel"), key=lambda p: p.stat().st_mtime, reverse=True
+		)
+		if mlmodel_files:
+			model_uri = str(mlmodel_files[0].parent)
 
 if model_uri is None:
 	raise RuntimeError(
@@ -76,6 +92,19 @@ if model_uri is None:
 model = mlflow.lightgbm.load_model(model_uri)
 output_path = Path("models") / "lightgbm.txt"
 output_path.parent.mkdir(parents=True, exist_ok=True)
-model.save_model(str(output_path))
+
+# LGBMClassifier (sklearn API) → utilise le booster interne
+# Booster natif → save_model directement
+import lightgbm as lgb
+
+if isinstance(model, lgb.Booster):
+	model.save_model(str(output_path))
+elif hasattr(model, "booster_"):
+	model.booster_.save_model(str(output_path))
+else:
+	# Dernier recours : sérialisation joblib
+	import joblib
+	output_path = output_path.with_suffix(".pkl")
+	joblib.dump(model, str(output_path))
 
 print(f"Modèle exporté depuis {model_uri} vers {output_path}")

@@ -2,9 +2,6 @@
 data/
 datasets/
 mlruns/
-models/*.pkl
-models/*.txt
-models/*.joblib
 *.csv
 *.parquet
 notebooks/
@@ -14,5 +11,11 @@ __pycache__/
 .git
 .gitignore
 venv/
+.venv/
 .env
-uv.lock  # optionnel, si tu gardes uv localement
+uv.lock
+pyproject.toml
+
+# Scripts utilitaires (pas nécessaires en inférence)
+models/export_model.py
+src/
