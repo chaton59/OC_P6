@@ -15,8 +15,6 @@ dependencies = [
     "plotly>=5.14.0",
     # Machine Learning
     "lightgbm>=4.0.0",
-    "xgboost>=2.0.0",
-    "catboost>=1.2.0",
     # MLflow for tracking
     "mlflow>=2.10.0",
     # Hyperparameter optimization
@@ -43,6 +41,10 @@ dev = [
     # Testing
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
+    
+    # Machine Learning (for notebooks only)
+    "xgboost>=2.0.0",
+    "catboost>=1.2.0",
     
     # Code quality
     "black>=23.0.0",
