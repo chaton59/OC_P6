@@ -215,3 +215,4 @@ Ce projet est à usage éducatif.
 **Prochaines phases :** Modélisation et Optimisation
 
 Ce projet est conçu comme un parcours d'apprentissage en machine learning appliqué au credit scoring.# Test push credentials
+# Test 2
