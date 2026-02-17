@@ -9,10 +9,20 @@ import mlflow.lightgbm
 import pandas as pd
 
 
-# Load the model once at startup for efficiency.
+# Load the model once at startup for efficiency (lazy loading for tests).
 # If the "Production" stage is not available, MLflow will fall back to the latest version.
 MODEL_URI = "models:/LightGBM/Production"
-MODEL = mlflow.lightgbm.load_model(MODEL_URI)
+MODEL = None
+
+def _load_model():
+	"""Lazy-load the model on first use."""
+	global MODEL
+	if MODEL is None:
+		try:
+			MODEL = mlflow.lightgbm.load_model(MODEL_URI)
+		except Exception as e:
+			raise RuntimeError(f"Failed to load model from {MODEL_URI}: {e}") from e
+	return MODEL
 
 
 def _validate_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -63,11 +73,12 @@ def _predict(json_line: str, threshold: float = 0.4) -> str:
 	try:
 		df = _parse_json_line(json_line)
 
+		model = _load_model()
 		try:
-			proba = float(MODEL.predict_proba(df)[:, 1][0])
+			proba = float(model.predict_proba(df)[:, 1][0])
 		except AttributeError:
 			# Fallback for models exposing predict() returning probabilities.
-			proba = float(MODEL.predict(df)[0])
+			proba = float(model.predict(df)[0])
 
 		if not 0.0 <= proba <= 1.0:
 			raise ValueError("La probabilité prédite est hors de l'intervalle [0, 1].")
