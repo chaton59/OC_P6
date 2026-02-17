@@ -113,6 +113,3 @@ Validez la compatibilité des optimisations avec l'environnement de production.
 Outils: 
 Outils de profiling (ex: cProfile). 
 Bibliothèques d'optimisation (ex: ONNX Runtime).
-
-
-

@@ -29,7 +29,7 @@ jobs:
 
       # Run test suite with coverage.
       - name: Run tests
-        run: pytest --cov=app -v
+        run: pytest --cov=app --cov-report=term-missing -v
 
   build-docker:
     # Only build if tests succeed.
