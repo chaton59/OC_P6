@@ -1,3 +1,15 @@
+---
+title: Credit Scoring - Home Credit Default Risk
+emoji: 📊
+colorFrom: blue
+colorTo: green
+sdk: streamlit
+sdk_version: "1.39.0"
+python_version: "3.11"
+app_file: app.py
+pinned: false
+---
+
 # Projet Credit Scoring - Home Credit Default Risk
 
 ## 📋 Description
