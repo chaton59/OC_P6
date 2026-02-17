@@ -1,0 +1,27 @@
+name: Sync to HF Spaces
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Push dev to HF test space
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          git remote add hf-test https://ASI-Engineer:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/ASI-Engineer/OC_P8_test 2>/dev/null || true
+          git push hf-test dev:main --force
+
+      - name: Push main to HF prod space
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git remote add hf-prod https://ASI-Engineer:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/ASI-Engineer/OC_P8_prod 2>/dev/null || true
+          git push hf-prod main:main --force
