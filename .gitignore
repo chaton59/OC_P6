@@ -86,3 +86,18 @@ experiments/
 .env.*
 *.env
 credentials/
+# === Fichiers exclus pour HF Spaces (binaires lourds) ===
+*.db
+mlflow.db
+notebooks/mlflow.db
+*.png
+*.jpg
+*.jpeg
+*.pdf
+mlruns/
+notebooks/
+data/
+datasets/
+*.parquet
+*.csv
+uv.lock
