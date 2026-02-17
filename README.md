@@ -214,4 +214,4 @@ Ce projet est à usage éducatif.
 **Phase actuelle :** Exploration et Feature Engineering  
 **Prochaines phases :** Modélisation et Optimisation
 
-Ce projet est conçu comme un parcours d'apprentissage en machine learning appliqué au credit scoring.
+Ce projet est conçu comme un parcours d'apprentissage en machine learning appliqué au credit scoring.# Test push credentials
