@@ -14,6 +14,7 @@ except Exception:
     _hf = None
 
 if _hf is not None:
+    # Patch only missing symbols to preserve real package behaviour
     if not hasattr(_hf, 'HfFolder'):
         class HfFolder:
             @staticmethod
