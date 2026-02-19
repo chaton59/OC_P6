@@ -198,6 +198,49 @@ Ce projet suit l'approche du kernel Kaggle **"LightGBM with Simple Features"** d
 3. Optimisation : tuning des hyperparamètres
 4. Évaluation : métriques (ROC-AUC, coûts métier)
 5. Prédictions : générer les prédictions pour le test set
+## Déploiement
+
+### Test
+
+- Space de test : https://huggingface.co/spaces/ASI-Engineer/OC_P8_test
+- Branche utilisée : `dev` (builds déclenchés automatiquement au push)
+
+### Production
+
+- Space de production : https://huggingface.co/spaces/ASI-Engineer/OC_P8_prod
+- Branche utilisée : `main`
+
+### Lancement local avec Docker
+
+Construire l'image puis lancer le conteneur :
+
+```bash
+docker build -t oc_p6:latest .
+docker run --rm -it -p 7860:7860 oc_p6:latest
+```
+
+### Tester l'API
+
+L'API attend une *ligne JSON* (une seule observation). Exemple JSON minimal :
+
+```json
+{"SK_ID_CURR": 100001, "AMT_INCOME_TOTAL": 202500.0, "AMT_CREDIT": 80000.0, "CODE_GENDER": "M", "DAYS_BIRTH": -12000}
+```
+
+Exemple de requête (POST) vers la Space de production :
+
+```bash
+curl -s -X POST "https://huggingface.co/spaces/ASI-Engineer/OC_P8_prod/api/predict" \
+  -H "Content-Type: application/json" \
+  -d '{"data":["{\"SK_ID_CURR\":100001,\"AMT_INCOME_TOTAL\":202500.0,\"AMT_CREDIT\":80000.0,\"CODE_GENDER\":\"M\",\"DAYS_BIRTH\":-12000}"]}'
+```
+
+La réponse contient : `Score`, `Probabilité de défaut` et `Décision`.
+
+### Seuil de décision
+
+- **Seuil par défaut : 0.4** (si probabilité de défaut ≥ 0.4 → **Refusé**)
+
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues! Merci de:
