@@ -54,7 +54,7 @@ jobs:
   deploy-hf:
     # Deploy to Hugging Face only after tests pass.
     needs: test
-    if: success() && github.ref == 'refs/heads/dev'
+    if: success() && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
