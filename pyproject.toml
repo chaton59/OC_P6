@@ -33,7 +33,7 @@ dependencies = [
     "ipywidgets>=8.1.0",
     # Flask for serving
     "flask>=3.0.0",
-    "gradio>=4.0",
+    "gradio>=4.44.1",
 ]
 
 [project.optional-dependencies]
