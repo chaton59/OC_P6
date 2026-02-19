@@ -60,13 +60,43 @@ MODEL_URI = "models:/LightGBM/Production"
 MODEL = None
 
 def _load_model():
-	"""Lazy-load the model on first use."""
+	"""Lazy-load the model on first use.
+
+	Behavior:
+	- Try Model Registry URI `MODEL_URI` first.
+	- If that fails, try to load a local LightGBM model file `models/lightgbm.txt` as a safe fallback.
+	"""
 	global MODEL
 	if MODEL is None:
+		# 1) Try the configured MLflow model URI (registry or run URI)
 		try:
 			MODEL = mlflow.lightgbm.load_model(MODEL_URI)
-		except Exception as e:
-			raise RuntimeError(f"Failed to load model from {MODEL_URI}: {e}") from e
+			return MODEL
+		except Exception:
+			# keep exception info for debugging but attempt local fallback
+			mlflow_err = None
+			try:
+				raise
+			except Exception as err:
+				mlflow_err = err
+
+		# 2) Fallback: try a raw LightGBM model file exported to `models/lightgbm.txt`
+		local_path = Path("models") / "lightgbm.txt"
+		if local_path.exists():
+			try:
+				import lightgbm as lgb
+				MODEL = lgb.Booster(model_file=str(local_path))
+				return MODEL
+			except Exception as err:
+				# raise a combined error for easier debugging
+				raise RuntimeError(
+					f"Failed to load model from {MODEL_URI} (mlflow error: {mlflow_err}) "
+					f"and failed to load local model {local_path}: {err}"
+			) from err
+
+		# 3) Nothing worked — raise original MLflow error
+		raise RuntimeError(f"Failed to load model from {MODEL_URI}: {mlflow_err}") from mlflow_err
+
 	return MODEL
 
 
