@@ -51,23 +51,4 @@ jobs:
       - name: Build Docker image
         run: docker build -t api .
 
-  deploy-hf:
-    # Deploy to Hugging Face only after tests pass.
-    needs: test
-    if: success() && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
 
-      - name: Configure git
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@users.noreply.github.com"
-
-      - name: Push to Hugging Face Space
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE_URL: https://huggingface.co/spaces/ASI-Engineer/OC_P8_test
-        run: |
-          git push "https://user:${HF_TOKEN}@${HF_SPACE_URL#https://}" HEAD:main
