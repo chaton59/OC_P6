@@ -42,6 +42,16 @@ import gradio as gr
 import mlflow
 import mlflow.lightgbm
 import pandas as pd
+from pathlib import Path
+
+# Optional joblib for preprocessor persistence; fall back to None if unavailable
+try:
+	import joblib
+except Exception:
+	joblib = None
+
+# Lightweight transformer to accept "raw" payloads (categorical strings, booleans)
+from src.preprocessing import RawToModelTransformer
 
 
 # Load the model once at startup for efficiency (lazy loading for tests).
@@ -59,6 +69,42 @@ def _load_model():
 			raise RuntimeError(f"Failed to load model from {MODEL_URI}: {e}") from e
 	return MODEL
 
+
+# Preprocessor (accept "raw" input and map to model features)
+PREPROCESSOR = None
+
+def _load_preprocessor():
+	"""Load or instantiate the RawToModelTransformer.
+
+	If a serialized preprocessor exists at `models/preprocessor.joblib` it is loaded.
+	Otherwise an instance of `RawToModelTransformer` is created and (if possible)
+	saved for future runs.
+	"""
+	global PREPROCESSOR
+	if PREPROCESSOR is not None:
+		return PREPROCESSOR
+
+	path = Path("models") / "preprocessor.joblib"
+	if path.exists() and joblib is not None:
+		try:
+			PREPROCESSOR = joblib.load(path)
+			return PREPROCESSOR
+		except Exception:
+			# continue to create a fresh instance
+			PREPROCESSOR = None
+
+	# create a fresh transformer (it will infer feature names from CSV)
+	PREPROCESSOR = RawToModelTransformer()
+	# try to persist for later
+	if joblib is not None:
+		try:
+			path.parent.mkdir(parents=True, exist_ok=True)
+			joblib.dump(PREPROCESSOR, path)
+		except Exception:
+			# non-fatal: continue without persistence
+			pass
+
+	return PREPROCESSOR
 
 def _validate_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
 	"""Basic validation on input payload.
@@ -92,15 +138,66 @@ def _parse_json_line(json_line: str) -> pd.DataFrame:
 	payload = _validate_payload(raw)
 	df = pd.DataFrame([payload])
 
-	# TODO: Apply preprocessing if needed (e.g., load a preprocessor from src/ or joblib)
-	# from src.preprocessing import preprocessor
-	# df = preprocessor.transform(df)
-	# or
-	# import joblib
-	# preprocessor = joblib.load("path/to/preprocessor.joblib")
-	# df = preprocessor.transform(df)
+	# Try to apply a lightweight preprocessor to accept "raw" payloads
+	# The transformer maps categorical strings (ex. NAME_CONTRACT_TYPE) to the
+	# one-hot columns expected by the trained model. On any failure we keep the
+	# original dataframe and rely on column reindexing later.
+	try:
+		pre = _load_preprocessor()
+		if pre is not None:
+			# transform handles both full preprocessed rows and raw rows
+			df = pre.transform(df)
+	except Exception:
+		# Non-fatal: continue with the original df (alignment step will fill missing)
+		pass
 
 	return df
+
+
+def _get_model_feature_names(model) -> list | None:
+	"""Try to obtain the model's expected feature names.
+
+	Tries common LightGBM / sklearn attributes first, then falls back to
+	reading the header of `data/processed/features_train.csv`.
+	Returns a list of column names or None if not found.
+	"""
+	# 1) common LightGBM / sklearn attributes
+	try:
+		fn = getattr(model, "feature_name", None)
+		if callable(fn):
+			names = list(fn())
+			if names:
+				return names
+	except Exception:
+		pass
+
+	names = getattr(model, "feature_name_", None)
+	if isinstance(names, (list, tuple)):
+		return list(names)
+
+	# LightGBM scikit-learn wrapper exposes `booster_`
+	try:
+		if hasattr(model, "booster_") and getattr(model.booster_, "feature_name", None):
+			return list(model.booster_.feature_name())
+	except Exception:
+		pass
+
+	# 2) Fallback to header from the preprocessed training CSV
+	try:
+		header_path = Path("data/processed/features_train.csv")
+		if header_path.exists():
+			with header_path.open("r", encoding="utf-8") as fh:
+				first = fh.readline().strip()
+				if first:
+					cols = [c.strip() for c in first.split(",")]
+					# remove identifier/target if present
+					cols = [c for c in cols if c not in ("SK_ID_CURR", "TARGET")]
+					if cols:
+						return cols
+	except Exception:
+		pass
+
+	return None
 
 
 def _predict(json_line: str, threshold: float = 0.4) -> str:
@@ -109,6 +206,13 @@ def _predict(json_line: str, threshold: float = 0.4) -> str:
 		df = _parse_json_line(json_line)
 
 		model = _load_model()
+
+		# Align input columns to the model's expected features (fill missing with 0).
+		expected = _get_model_feature_names(model)
+		if expected:
+			# keep only the expected columns and fill missing ones with 0
+			df = df.reindex(columns=expected, fill_value=0)
+
 		try:
 			proba = float(model.predict_proba(df)[:, 1][0])
 		except AttributeError:
