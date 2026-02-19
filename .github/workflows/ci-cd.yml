@@ -25,6 +25,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements-inference.txt
+          # Install the package in editable mode so `src` is importable in CI
+          pip install -e .
           pip install pytest pytest-cov
 
       - name: Export preprocessor
