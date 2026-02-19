@@ -34,7 +34,6 @@ dependencies = [
     # Flask for serving
     "flask>=3.0.0",
     "gradio==6.6.0",
-    "huggingface-hub>=0.33.5,<2.0",
 ]
 
 [project.optional-dependencies]
