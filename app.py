@@ -3,6 +3,34 @@
 import json
 from typing import Any, Dict
 
+# Compatibility shim: HF Spaces may install a `huggingface_hub` that no longer
+# exports `HfFolder` (used by older Gradio 4.x oauth). Ensure `HfFolder` and
+# `whoami` exist at import time so `import gradio` doesn't fail in the Space.
+import sys, types, os
+if 'huggingface_hub' in sys.modules:
+    _hf = sys.modules['huggingface_hub']
+    if not hasattr(_hf, 'HfFolder'):
+        class HfFolder:
+            @staticmethod
+            def get_token():
+                return os.environ.get('HF_TOKEN') or os.environ.get('HUGGINGFACE_HUB_TOKEN')
+        _hf.HfFolder = HfFolder
+    if not hasattr(_hf, 'whoami'):
+        def whoami(token=None):
+            return {}
+        _hf.whoami = whoami
+else:
+    _mod = types.ModuleType('huggingface_hub')
+    class HfFolder:
+        @staticmethod
+        def get_token():
+            return os.environ.get('HF_TOKEN') or os.environ.get('HUGGINGFACE_HUB_TOKEN')
+    def whoami(token=None):
+        return {}
+    _mod.HfFolder = HfFolder
+    _mod.whoami = whoami
+    sys.modules['huggingface_hub'] = _mod
+
 import gradio as gr
 import mlflow
 import mlflow.lightgbm
