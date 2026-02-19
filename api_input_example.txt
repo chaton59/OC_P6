@@ -1,0 +1,55 @@
+API — Format des données d'entrée (format attendu par l'endpoint/Gradio)
+
+Résumé
+------
+- L'API attend UNE SEULE LIGNE JSON (objet) : clés = noms de features, valeurs = scalaires (int/float/bool).
+- NOTE : l'API **aligne automatiquement** désormais les colonnes manquantes sur les features d'entraînement (remplissage par 0). Vous pouvez envoyer un sous-ensemble de features ; toutefois envoyer le vecteur complet (tous les noms de colonnes dans `data/processed/features_train.csv`) reste recommandé pour un contrôle total.
+
+Format exact
+------------
+- Type : JSON objet (une seule ligne)
+- Exigences : valeurs scalaires (pas de listes/objets), pas de valeur null (None).
+- Exemple minimal (valide pour les tests et pour obtenir une prédiction) :
+  {"EXT_SOURCE_1": 0.5, "AMT_INCOME_TOTAL": 50000.0}
+
+Exemple recommandé (pré-traité — envoie un vecteur de features similaire à l'entraînement) :
+- Note : certaines colonnes catégorielles ont été one-hot encodées dans les features pré‑traitées
+  (ex. `NAME_CONTRACT_TYPE_Cash loans`). Fournissez ces colonnes si le modèle les attend.
+
+Nouveau — entrée "brute" supportée :
+- L'API accepte désormais des champs bruts (ex. `NAME_CONTRACT_TYPE": "Cash loans"`) —
+  le préprocesseur côté API convertit automatiquement en colonnes one-hot attendues.
+
+Exemple d'entrée "brute" (maintenant supportée) :
+{"NAME_CONTRACT_TYPE": "Cash loans", "AMT_INCOME_TOTAL": 120000.0, "EXT_SOURCE_1": 0.45}
+
+Exemple (une seule ligne JSON) :
+{"EXT_SOURCE_1": 0.450, "EXT_SOURCE_2": 0.320, "EXT_SOURCE_3": 0.210, "AMT_INCOME_TOTAL": 120000.0, "AMT_CREDIT": 350000.0, "AMT_ANNUITY": 15000.0, "DAYS_BIRTH": -12000, "DAYS_EMPLOYED": -2000, "CNT_CHILDREN": 0, "NAME_CONTRACT_TYPE_Cash loans": 1, "NAME_CONTRACT_TYPE_Revolving loans": 0, "WEEKDAY_APPR_PROCESS_START_MONDAY": 0, "WEEKDAY_APPR_PROCESS_START_TUESDAY": 1}
+
+Comment vérifier/obtenir la liste complète des colonnes
+------------------------------------------------------
+- Ouvrez `data/processed/features_train.csv` et utilisez la première ligne (en‑têtes) : ce sont les noms exacts attendus par le modèle.
+
+Petit snippet Python pour générer un JSON d'exemple depuis le jeu de features pré-traitées
+-----------------------------------------------------------------------------------------
+import pandas as pd
+row = pd.read_csv("data/processed/features_test.csv").iloc[0]
+# retirer les colonnes non attendues (ex: SK_ID_CURR, TARGET)
+payload = row.drop(columns=[c for c in ["SK_ID_CURR","TARGET"] if c in row.index]).to_dict()
+# format accepté par l'API (une seule ligne JSON)
+json_line = pd.Series([payload]).to_json(orient="records")[1:-1]
+print(json_line)
+
+Conseils / points d'attention ⚠️
+--------------------------------
+- Si vous envoyez des variables « brutes » (ex. "NAME_CONTRACT_TYPE": "Cash loans"), l'API ne les convertira pas en colonnes one-hot. Soit envoyez les colonnes pré‑traitées, soit ajoutez un préprocesseur côté API.
+- Les valeurs manquantes (None) sont rejetées par la validation ; utilisez NaN / valeurs numériques si nécessaire (ou implémentez l'imputation côté client).
+- Seuil de décision par défaut : 0.4 (prob < 0.4 => Accordé, sinon Refusé).
+
+Le préprocesseur est maintenant disponible et peut être sérialisé pour la production.
+
+Générer et enregistrer le préprocesseur (optionnel, recommandé pour la prod) :
+- Lancez : `python models/export_preprocessor.py`
+- Cela crée `models/preprocessor.joblib` (chargé automatiquement par l'API si présent).
+
+Si vous voulez que je committe `models/preprocessor.joblib` dans le dépôt, dites‑le et je le ferai.

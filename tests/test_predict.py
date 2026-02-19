@@ -91,3 +91,19 @@ def test_predict_out_of_range_value(dummy_model: DummyModel) -> None:
 	assert "Erreur" not in response
 	proba = _extract_proba(response)
 	assert 0.0 <= proba <= 1.0
+
+
+def test_predict_accepts_raw_categorical(dummy_model: DummyModel) -> None:
+	# The API should accept raw categorical fields and map them to the model's
+	# one-hot columns (e.g. NAME_CONTRACT_TYPE -> NAME_CONTRACT_TYPE_Cash loans).
+	payload = {
+		"NAME_CONTRACT_TYPE": "Cash loans",
+		"AMT_INCOME_TOTAL": 75000.0,
+		"EXT_SOURCE_1": 0.3,
+	}
+	json_line = _series_json(payload)
+	response = predict_score(json_line)
+
+	assert "Erreur" not in response
+	proba = _extract_proba(response)
+	assert 0.0 <= proba <= 1.0

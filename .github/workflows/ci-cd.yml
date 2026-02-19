@@ -27,6 +27,10 @@ jobs:
           pip install -r requirements-inference.txt
           pip install pytest pytest-cov
 
+      - name: Export preprocessor
+        run: |
+          python3 models/export_preprocessor.py
+
       # Run test suite with coverage.
       - name: Run tests
         run: pytest --cov=app --cov-report=term-missing -v
