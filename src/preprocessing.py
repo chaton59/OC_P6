@@ -17,6 +17,7 @@ pickled/joblib-dumped if desired.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Iterable, List, Optional
 
@@ -39,6 +40,20 @@ class RawToModelTransformer:
 	The transformer is intentionally conservative — it does not attempt to
 	recreate complex aggregations (BURO_*, PREV_*, POS_*, CC_*, INSTAL_* etc.).
 	"""
+	@staticmethod
+	def _sanitize_column_name(name: str) -> str:
+		"""Sanitize a column name to match the model's feature naming convention.
+
+		Replicates the notebook cleaning (03_LGBM.ipynb cell 6):
+		  1. Replace spaces with '_'
+		  2. Replace all non-alphanumeric/non-underscore chars with '_'
+		Note: double underscores are NOT collapsed — the exported model
+		feature names retain them.
+		"""
+		s = name.replace(' ', '_')
+		s = re.sub(r'[^a-zA-Z0-9_]', '_', s)
+		return s
+
 	def __init__(self, expected_features: Optional[Iterable[str]] = None, fill_value: float = 0.0) -> None:
 		self.fill_value = fill_value
 		self.expected_features = list(expected_features) if expected_features is not None else self._read_features_from_csv()
@@ -53,6 +68,8 @@ class RawToModelTransformer:
 				for c in ("SK_ID_CURR", "TARGET"):
 					if c in df_train.columns:
 						df_train = df_train.drop(columns=[c])
+				# Sanitize column names to match expected features
+				df_train.columns = [self._sanitize_column_name(c) for c in df_train.columns]
 				medians = df_train.median(numeric_only=True)
 				for col in self.expected_features:
 					if col in medians.index:
@@ -62,21 +79,21 @@ class RawToModelTransformer:
 				self._impute_values = {}
 
 	def _read_features_from_csv(self) -> List[str]:
+		"""Read expected feature names from the training CSV header.
+
+		Uses ``pd.read_csv(nrows=0)`` to correctly handle quoted column
+		names that contain commas (e.g. 'Spouse, partner').
+		Applies the same sanitization as the training notebook.
+		"""
 		p = Path("data/processed/features_train.csv")
 		if not p.exists():
 			return []
-		with p.open("r", encoding="utf-8") as fh:
-			first = fh.readline().strip()
-			if not first:
-				return []
-			cols = [c.strip() for c in first.split(",")]
-			cols = [c for c in cols if c not in ("SK_ID_CURR", "TARGET")]
-			# ensure sanitized column names (same cleaning as notebook)
-			clean_cols = [
-				c.replace(' ', '_').replace('/', '_').replace(':', '_').replace(',', '_')
-				for c in cols
-			]
-			return clean_cols
+		try:
+			df_header = pd.read_csv(p, nrows=0)
+			cols = [c for c in df_header.columns if c not in ("SK_ID_CURR", "TARGET")]
+			return [self._sanitize_column_name(c) for c in cols]
+		except Exception:
+			return []
 
 	def fit(self, X=None, y=None):
 		# Stateless transformer
@@ -86,16 +103,15 @@ class RawToModelTransformer:
 		return pd.isna(x)
 
 	def _sanitize_category(self, val: str) -> str:
-		# Normalize string to the column-suffix format used in training (underscores)
+		"""Normalize a category value to match the one-hot column suffix convention.
+
+		Uses the same logic as ``_sanitize_column_name`` (no collapse of
+		double underscores) so that e.g. 'Spouse, partner' → 'Spouse__partner'
+		matches the model feature name ``NAME_TYPE_SUITE_Spouse__partner``.
+		"""
 		if pd.isna(val):
 			return ""
-		s = str(val).strip()
-		s = s.replace(' ', '_')
-		s = ''.join(ch if ch.isalnum() or ch == '_' else '_' for ch in s)
-		# collapse multiple underscores
-		while '__' in s:
-			s = s.replace('__', '_')
-		return s
+		return self._sanitize_column_name(str(val).strip())
 
 	def _compute_derived(self, row: pd.Series) -> dict:
 		# Compute a few numeric derived features when base columns are available
@@ -153,6 +169,10 @@ class RawToModelTransformer:
 		if not self.expected_features:
 			# Nothing to map to — return copy of input
 			return df_raw.copy()
+
+		# Sanitize input column names so they match model feature names
+		df_raw = df_raw.copy()
+		df_raw.columns = [self._sanitize_column_name(c) for c in df_raw.columns]
 
 		out_rows = []
 		for _, row in df_raw.iterrows():

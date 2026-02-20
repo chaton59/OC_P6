@@ -3,8 +3,7 @@ data/
 datasets/
 mlruns/
 models/*.pkl
-models/*.txt
-models/*.joblib
+models/export_*.py
 *.csv
 *.parquet
 notebooks/

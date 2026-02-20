@@ -219,6 +219,19 @@ docker build -t oc_p6:latest .
 docker run --rm -it -p 7860:7860 oc_p6:latest
 ```
 
+### Lancement local (le plus simple)
+
+Utilisez le script d'aide qui crée un virtualenv, installe les dépendances et démarre l'API :
+
+```bash
+bash scripts/setup_dev.sh
+```
+
+> Si vous préférez exécuter manuellement :
+>
+> python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && python app.py
+
+
 ### Tester l'API
 
 L'API attend une *ligne JSON* (une seule observation). Exemple JSON minimal :
