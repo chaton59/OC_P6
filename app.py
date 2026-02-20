@@ -38,10 +38,13 @@ else:
     _mod.whoami = whoami
     sys.modules['huggingface_hub'] = _mod
 
+import re as _re
+
 import gradio as gr
 import mlflow
 import mlflow.lightgbm
 import pandas as pd
+import numpy as np
 from pathlib import Path
 
 # Optional joblib for preprocessor persistence; fall back to None if unavailable
@@ -55,47 +58,48 @@ from src.preprocessing import RawToModelTransformer
 
 
 # Load the model once at startup for efficiency (lazy loading for tests).
-# If the "Production" stage is not available, MLflow will fall back to the latest version.
-MODEL_URI = "models:/LightGBM/Production"
 MODEL = None
 
 def _load_model():
 	"""Lazy-load the model on first use.
 
 	Behavior:
-	- Try Model Registry URI `MODEL_URI` first.
-	- If that fails, try to load a local LightGBM model file `models/lightgbm.txt` as a safe fallback.
+	- Try local LightGBM model file `models/lightgbm.txt` first (fastest, works in Docker/HF).
+	- If that fails, try the MLflow Model Registry as fallback (for local dev with MLflow server).
 	"""
 	global MODEL
 	if MODEL is None:
-		# 1) Try the configured MLflow model URI (registry or run URI)
+		import lightgbm as lgb
+
+		# 1) Local model file (primary — portable for Docker / HF Spaces)
+		candidate_paths = [
+			Path(__file__).resolve().parent / "models" / "lightgbm.txt",
+			Path.cwd() / "models" / "lightgbm.txt",
+		]
+		env_path = os.environ.get("LOCAL_MODEL_PATH")
+		if env_path:
+			candidate_paths.insert(0, Path(env_path))
+
+		for p in candidate_paths:
+			if p.exists():
+				try:
+					MODEL = lgb.Booster(model_file=str(p))
+					print(f"Loaded local LightGBM model from {p}")
+					return MODEL
+				except Exception as err:
+					print(f"Warning: failed to load {p}: {err}")
+
+		# 2) Fallback: MLflow Model Registry (for local dev)
 		try:
-			MODEL = mlflow.lightgbm.load_model(MODEL_URI)
+			MODEL = mlflow.lightgbm.load_model("models:/LightGBM/Production")
+			print("Loaded model from MLflow registry")
 			return MODEL
-		except Exception:
-			# keep exception info for debugging but attempt local fallback
-			mlflow_err = None
-			try:
-				raise
-			except Exception as err:
-				mlflow_err = err
-
-		# 2) Fallback: try a raw LightGBM model file exported to `models/lightgbm.txt`
-		local_path = Path("models") / "lightgbm.txt"
-		if local_path.exists():
-			try:
-				import lightgbm as lgb
-				MODEL = lgb.Booster(model_file=str(local_path))
-				return MODEL
-			except Exception as err:
-				# raise a combined error for easier debugging
-				raise RuntimeError(
-					f"Failed to load model from {MODEL_URI} (mlflow error: {mlflow_err}) "
-					f"and failed to load local model {local_path}: {err}"
-			) from err
-
-		# 3) Nothing worked — raise original MLflow error
-		raise RuntimeError(f"Failed to load model from {MODEL_URI}: {mlflow_err}") from mlflow_err
+		except Exception as mlflow_err:
+			raise RuntimeError(
+				f"No local model found at {[str(p) for p in candidate_paths]} "
+				f"and MLflow registry failed: {mlflow_err}. "
+				"Place the model at `models/lightgbm.txt` or set LOCAL_MODEL_PATH."
+			) from mlflow_err
 
 	return MODEL
 
@@ -166,7 +170,17 @@ def _parse_json_line(json_line: str) -> pd.DataFrame:
 		raise ValueError("JSON invalide. Vérifie la syntaxe.") from exc
 
 	payload = _validate_payload(raw)
+
+	# Build a single-row DataFrame and sanitize common problematic inputs:
+	# - convert empty strings to NaN so numeric coercion / imputation works
+	# - convert string booleans to actual booleans ("True"/"False")
 	df = pd.DataFrame([payload])
+	df = df.replace({"": np.nan, "True": True, "False": False})
+
+	# Force all columns to numeric dtypes (LightGBM rejects object/str columns).
+	# Booleans become 1/0, strings that are still present become NaN.
+	for col in df.columns:
+		df[col] = pd.to_numeric(df[col], errors='coerce')
 
 	# Try to apply a lightweight preprocessor to accept "raw" payloads
 	# The transformer maps categorical strings (ex. NAME_CONTRACT_TYPE) to the
@@ -216,14 +230,12 @@ def _get_model_feature_names(model) -> list | None:
 	try:
 		header_path = Path("data/processed/features_train.csv")
 		if header_path.exists():
-			with header_path.open("r", encoding="utf-8") as fh:
-				first = fh.readline().strip()
-				if first:
-					cols = [c.strip() for c in first.split(",")]
-					# remove identifier/target if present
-					cols = [c for c in cols if c not in ("SK_ID_CURR", "TARGET")]
-					if cols:
-						return cols
+			df_header = pd.read_csv(header_path, nrows=0)
+			cols = [c for c in df_header.columns if c not in ("SK_ID_CURR", "TARGET")]
+			# Apply same sanitization as training notebook (spaces → _, non-alnum → _)
+			cols = [_re.sub(r'[^a-zA-Z0-9_]', '_', c.replace(' ', '_')) for c in cols]
+			if cols:
+				return cols
 	except Exception:
 		pass
 
@@ -242,6 +254,10 @@ def _predict(json_line: str, threshold: float = 0.4) -> str:
 		if expected:
 			# keep only the expected columns and fill missing ones with 0
 			df = df.reindex(columns=expected, fill_value=0)
+
+		# Final safety: ensure every column is numeric (LightGBM requirement)
+		for col in df.columns:
+			df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
 		try:
 			proba = float(model.predict_proba(df)[:, 1][0])
@@ -320,4 +336,7 @@ def build_demo() -> gr.Blocks:
 demo = build_demo()
 
 if __name__ == "__main__":
-	demo.launch()
+	demo.launch(
+		server_name="0.0.0.0",
+		server_port=int(os.environ.get("PORT", 7860)),
+	)

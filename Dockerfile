@@ -6,6 +6,10 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
+# Install system dependencies required by LightGBM (OpenMP)
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy dependency manifests first for better caching
 COPY pyproject.toml uv.lock ./
 
@@ -24,6 +28,9 @@ EXPOSE 7860
 
 # Set PORT for compatibility
 ENV PORT=7860
+
+# Ensure Python output is not buffered (logs visible immediately)
+ENV PYTHONUNBUFFERED=1
 
 # Launch the Gradio app
 CMD ["uv", "run", "app.py"]
