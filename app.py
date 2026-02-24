@@ -2,6 +2,12 @@
 
 import json
 from typing import Any, Dict
+# EXPLICATION : Imports nécessaires pour le logging structuré JSON
+import logging
+import time
+from datetime import datetime
+# EXPLICATION : Path pour gestion robuste des chemins de logs (multi-plateforme)
+from pathlib import Path
 
 # Compatibility shim: HF Spaces may install a `huggingface_hub` that no longer
 # exports `HfFolder` (used by older Gradio 4.x oauth). Try to import and patch
@@ -153,10 +159,8 @@ def _validate_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
 		raise ValueError("Le JSON est vide.")
 
 	for key, value in payload.items():
-		if value is None:
-			raise ValueError(f"La valeur de '{key}' est manquante.")
-
-		if isinstance(value, (list, dict)):
+		# EXPLICATION : None est accepté (LightGBM gère nativement les NaN)
+		if value is not None and isinstance(value, (list, dict)):
 			raise ValueError(f"La valeur de '{key}' doit être scalaire.")
 
 	return payload
@@ -177,6 +181,12 @@ def _parse_json_line(json_line: str) -> pd.DataFrame:
 	df = pd.DataFrame([payload])
 	df = df.replace({"": np.nan, "True": True, "False": False})
 
+	# EXPLICATION : Sanitiser les noms de colonnes pour matcher ceux attendus par le modèle.
+	# Le modèle a été entraîné avec des noms sanitisés (espaces → _, caractères spéciaux → _).
+	# Sans cette étape, des colonnes comme "BURO_CREDIT_ACTIVE_Bad debt_MEAN" ne matchent pas
+	# "BURO_CREDIT_ACTIVE_Bad_debt_MEAN" → fill_value=0 → prédictions faussées (tout Accordé).
+	df.columns = [_re.sub(r'[^a-zA-Z0-9_]', '_', c.replace(' ', '_')) for c in df.columns]
+
 	# Force all columns to numeric dtypes (LightGBM rejects object/str columns).
 	# Booleans become 1/0, strings that are still present become NaN.
 	for col in df.columns:
@@ -186,11 +196,22 @@ def _parse_json_line(json_line: str) -> pd.DataFrame:
 	# The transformer maps categorical strings (ex. NAME_CONTRACT_TYPE) to the
 	# one-hot columns expected by the trained model. On any failure we keep the
 	# original dataframe and rely on column reindexing later.
+	#
+	# IMPORTANT: Skip preprocessor if input is already processed data (e.g. from
+	# features_train.csv / reference.csv). Detect this by checking how many input
+	# columns match expected model features. If >50% match, data is already
+	# processed — running the preprocessor would replace NaN with median values,
+	# destroying the signal that LightGBM uses for missing-value splits.
 	try:
 		pre = _load_preprocessor()
 		if pre is not None:
-			# transform handles both full preprocessed rows and raw rows
-			df = pre.transform(df)
+			expected_feats = set(pre.get_feature_names_out()) if hasattr(pre, 'get_feature_names_out') else set()
+			overlap = len(set(df.columns) & expected_feats)
+			if expected_feats and overlap / len(expected_feats) > 0.5:
+				# Data is already processed — skip preprocessor to avoid double processing
+				pass
+			else:
+				df = pre.transform(df)
 	except Exception:
 		# Non-fatal: continue with the original df (alignment step will fill missing)
 		pass
@@ -242,22 +263,68 @@ def _get_model_feature_names(model) -> list | None:
 	return None
 
 
+# EXPLICATION : Fonction helper pour logger chaque prédiction avec tous les champs requis
+# IMPORTANT : Écrit DIRECTEMENT dans le fichier (pas de FileHandler)
+# pour éviter les problèmes d'interférence avec Gradio/autres loggers
+def log_prediction(input_raw: str, input_features: dict, output_proba: float, 
+                   output_decision: str, execution_time_ms: float, error: str = None):
+	"""Log une prédiction au format JSON structuré dans logs/predictions.jsonl."""
+	try:
+		# EXPLICATION : Crée le dossier logs si n'existe pas
+		_log_dir = Path("logs")
+		_log_dir.mkdir(parents=True, exist_ok=True)
+		
+		# EXPLICATION : Construit l'entrée JSON
+		log_entry = {
+			"timestamp": datetime.utcnow().isoformat() + "Z",
+			"input_raw": input_raw,
+			"input_features": input_features,
+			"output_proba": round(output_proba, 4) if output_proba is not None else None,
+			"output_decision": output_decision,
+			"execution_time_ms": round(execution_time_ms, 1),
+			"error": error,
+			"model_version": "models:/LightGBM/Production",
+			"threshold": 0.4
+		}
+		
+		# EXPLICATION : Écrit DIRECTEMENT dans le fichier (robuste à Gradio)
+		# Mode "a" = append, newline assuré après chaque log
+		log_line = json.dumps(log_entry, ensure_ascii=False) + "\n"
+		log_file = _log_dir / "predictions.jsonl"
+		
+		with open(log_file, "a", encoding="utf-8") as f:
+			f.write(log_line)
+			f.flush()  # Force l'écriture immédiate (important pour le suivi en temps réel)
+		
+		# EXPLICATION : Aussi afficher dans la console pour Docker/HF Spaces
+		print(f"[LOG] {log_line.strip()}")
+		
+	except Exception as exc:
+		# EXPLICATION : N'échoue pas silencieusement si le logging échoue
+		print(f"[ERROR] Logging échoué : {exc}", flush=True)
+
+
 def _predict(json_line: str, threshold: float = 0.4) -> str:
 	"""Predict default probability and return a formatted response."""
+	# EXPLICATION : Capture du temps de début pour calculer execution_time_ms
+	start_time = time.perf_counter()
+	
 	try:
 		df = _parse_json_line(json_line)
 
 		model = _load_model()
 
-		# Align input columns to the model's expected features (fill missing with 0).
+		# Align input columns to the model's expected features.
+		# EXPLICATION: fill_value=np.nan (pas 0) pour que LightGBM utilise ses
+		# splits natifs sur les valeurs manquantes — c'est ainsi qu'il a été entraîné.
 		expected = _get_model_feature_names(model)
 		if expected:
-			# keep only the expected columns and fill missing ones with 0
-			df = df.reindex(columns=expected, fill_value=0)
+			df = df.reindex(columns=expected, fill_value=np.nan)
 
 		# Final safety: ensure every column is numeric (LightGBM requirement)
+		# NaN are preserved — LightGBM handles them natively.
 		for col in df.columns:
-			df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+			df[col] = pd.to_numeric(df[col], errors='coerce')
 
 		try:
 			proba = float(model.predict_proba(df)[:, 1][0])
@@ -271,6 +338,18 @@ def _predict(json_line: str, threshold: float = 0.4) -> str:
 		score = int(proba * 1000)
 		decision = "Accordé" if proba < threshold else "Refusé"
 
+		# EXPLICATION : Log de la prédiction réussie avec toutes les métriques
+		execution_time_ms = (time.perf_counter() - start_time) * 1000
+		input_features = json.loads(json_line)  # reconvertir pour le log
+		log_prediction(
+			input_raw=json_line,
+			input_features=input_features,
+			output_proba=proba,
+			output_decision=decision,
+			execution_time_ms=execution_time_ms,
+			error=None
+		)
+
 		return (
 			f"Score: {score}\n"
 			f"Probabilité de défaut: {proba:.4f}\n"
@@ -278,12 +357,65 @@ def _predict(json_line: str, threshold: float = 0.4) -> str:
 		)
 
 	except ValueError as exc:
+		# EXPLICATION : Log de l'erreur avec temps d'exécution et message d'erreur
+		execution_time_ms = (time.perf_counter() - start_time) * 1000
+		try:
+			input_features = json.loads(json_line)
+		except:
+			input_features = {}
+		log_prediction(
+			input_raw=json_line,
+			input_features=input_features,
+			output_proba=None,
+			output_decision="Erreur",
+			execution_time_ms=execution_time_ms,
+			error=f"ValueError: {exc}"
+		)
 		return f"Erreur: {exc}"
 	except KeyError as exc:
+		execution_time_ms = (time.perf_counter() - start_time) * 1000
+		try:
+			input_features = json.loads(json_line)
+		except:
+			input_features = {}
+		log_prediction(
+			input_raw=json_line,
+			input_features=input_features,
+			output_proba=None,
+			output_decision="Erreur",
+			execution_time_ms=execution_time_ms,
+			error=f"KeyError: {exc}"
+		)
 		return f"Erreur: colonne manquante ({exc})."
 	except TypeError as exc:
+		execution_time_ms = (time.perf_counter() - start_time) * 1000
+		try:
+			input_features = json.loads(json_line)
+		except:
+			input_features = {}
+		log_prediction(
+			input_raw=json_line,
+			input_features=input_features,
+			output_proba=None,
+			output_decision="Erreur",
+			execution_time_ms=execution_time_ms,
+			error=f"TypeError: {exc}"
+		)
 		return f"Erreur: type invalide ({exc})."
 	except Exception as exc:  # noqa: BLE001
+		execution_time_ms = (time.perf_counter() - start_time) * 1000
+		try:
+			input_features = json.loads(json_line)
+		except:
+			input_features = {}
+		log_prediction(
+			input_raw=json_line,
+			input_features=input_features,
+			output_proba=None,
+			output_decision="Erreur",
+			execution_time_ms=execution_time_ms,
+			error=f"Exception: {exc}"
+		)
 		return f"Erreur inattendue: {exc}"
 
 
@@ -340,3 +472,5 @@ if __name__ == "__main__":
 		server_name="0.0.0.0",
 		server_port=int(os.environ.get("PORT", 7860)),
 	)
+
+# Sous-étape 3 terminée - stockage logs consolidé (local + Docker ready)

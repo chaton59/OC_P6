@@ -254,6 +254,44 @@ La réponse contient : `Score`, `Probabilité de défaut` et `Décision`.
 
 - **Seuil par défaut : 0.4** (si probabilité de défaut ≥ 0.4 → **Refusé**)
 
+---
+
+## 🎯 Étape 3 - Monitoring Production & Data Drift
+
+### Objectif
+Mettre en place un système de monitoring léger en production pour détecter les dérives de données et surveiller les performances opérationnelles de l'API.
+
+### Résultats clés
+✅ **Logging structuré JSON** implémenté dans l'API (`app.py`)  
+✅ **200+ appels simulés** en production avec `reference/simulate_production_calls.py`  
+✅ **Analyse opérationnelle** : latence moyenne & distribution des scores  
+✅ **Detection Data Drift** avec Evidently : **25 features impactées**  
+✅ **Feature critique** : `AMT_INCOME_TOTAL` (Drift Score = 0.304)
+
+### Contenu
+
+- **[📊 Rapport complet](reports/monitoring_study.md)** - Analyse complète avec visualisations et recommandations
+- **[📈 Dashboard Drift](reports/data_drift_report.html)** - Rapport Evidently (drift détecté/non détecté par feature)
+- **[🕐 Latence API](reports/plots/latence_histogram.html)** - Distribution du temps d'exécution
+- **[📉 Distribution Probabilités](reports/plots/proba_histogram.html)** - Scores de risque en production
+
+### Architecture
+
+```
+Logs (JSONL) ──> Pandas + Plotly ──> HTML Reports
+                      │
+                      └──> Evidently ──> Data Drift Report
+```
+
+**Stockage**: Fichier JSONL léger (< 1 Mo pour 10k appels)  
+**Alertes futures**: Seuil drift > 0.25 → Slack/Email  
+**Amélioration**: Intégration NannyML ou MLflow pour prediction drift
+
+### PoC Status
+✅ **Local PoC: 100% terminé**
+
+---
+
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues! Merci de:

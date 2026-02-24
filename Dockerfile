@@ -6,6 +6,9 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
+# EXPLICATION : Sous-étape 3 - création dossier logs pour persistance (évite erreurs permissions)
+RUN mkdir -p /app/logs
+
 # Install system dependencies required by LightGBM (OpenMP)
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
     && rm -rf /var/lib/apt/lists/*
@@ -31,6 +34,9 @@ ENV PORT=7860
 
 # Ensure Python output is not buffered (logs visible immediately)
 ENV PYTHONUNBUFFERED=1
+
+# EXPLICATION : Volume pour logs (bonne pratique Docker - permet docker cp ou mount externe)
+VOLUME ["/app/logs"]
 
 # Launch the Gradio app
 CMD ["uv", "run", "app.py"]
