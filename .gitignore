@@ -105,3 +105,4 @@ uv.lock
 # EXPLICATION : Logs de production - jamais commiter (contiennent des données sensibles)
 logs/
 *.jsonl
+reports/data_drift_report.html
