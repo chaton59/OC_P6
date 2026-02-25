@@ -17,11 +17,21 @@ jobs:
       - name: Push dev to HF test space
         if: github.ref == 'refs/heads/dev'
         run: |
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions"
           git remote add hf-test https://ASI-Engineer:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/ASI-Engineer/OC_P8_test 2>/dev/null || true
-          git push hf-test dev:main --force
+          git checkout --orphan hf-sync-temp
+          git rm -rf reports/ 2>/dev/null || true
+          git commit -m "Sync to HF Spaces [no-ci]"
+          git push hf-test hf-sync-temp:main --force
 
       - name: Push main to HF prod space
         if: github.ref == 'refs/heads/main'
         run: |
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions"
           git remote add hf-prod https://ASI-Engineer:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/ASI-Engineer/OC_P8_prod 2>/dev/null || true
-          git push hf-prod main:main --force
+          git checkout --orphan hf-sync-temp
+          git rm -rf reports/ 2>/dev/null || true
+          git commit -m "Sync to HF Spaces [no-ci]"
+          git push hf-prod hf-sync-temp:main --force
