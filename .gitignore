@@ -107,5 +107,7 @@ logs/
 *.jsonl
 
 # Reports et artefacts de rapports générés
-reports/
 *.html
+*.png
+!reports/**/*.html
+!reports/**/*.png
