@@ -232,3 +232,75 @@ class RawToModelTransformer:
 
 	def get_feature_names_out(self) -> List[str]:
 		return list(self.expected_features)
+
+
+# =============================================================================
+# VectorizedPreprocessor — VERSION OPTIMISÉE 4.4 (Gain 15.7x)
+# Wrappeur vectorisé de RawToModelTransformer pour batch et requêtes unitaires.
+# Source : notebooks/10_optimisation.ipynb — Cellule 3
+# =============================================================================
+
+class VectorizedPreprocessor:
+	"""Preprocessor vectorisé pour traiter PLUSIEURS lignes en UNE seule opération.
+
+	Gain de performance : 15.7x plus rapide que la boucle ligne par ligne
+	grâce à la construction du DataFrame depuis une liste de dicts en une
+	seule opération pandas (pd.DataFrame(payloads)).
+
+	Usage dans app.py :
+		prep = VectorizedPreprocessor(base_transformer)
+		df = prep.transform_single(payload_dict)        # requête API unique
+		df = prep.transform_batch([dict1, dict2, ...])  # batch
+		df = prep.transform_one_sample(json_string)     # depuis JSON brut
+	"""
+
+	def __init__(self, base_transformer: "RawToModelTransformer") -> None:
+		"""Initialise avec un transformer de base (récupère expected_features + impute)."""
+		self.base_transformer = base_transformer
+		# Accès direct aux attributs clés pour éviter les appels répétés
+		self.expected_features = base_transformer.expected_features
+		self._impute_values = base_transformer._impute_values
+
+	def transform_batch(self, payloads: list) -> pd.DataFrame:
+		"""Transforme une liste de dicts (payloads JSON) → DataFrame features.
+
+		Étapes :
+		1. Convertir liste de dicts → DataFrame en UNE opération pandas vectorisée
+		2. Nettoyage standard (empty string, boolean string, numeric coercion)
+		3. Appliquer le transformer de base (one-hot, médiane, derived features)
+		4. Retourner DataFrame prêt pour le modèle LightGBM
+		"""
+		# === ÉTAPE 1 : Construction vectorisée du DataFrame (cœur du gain 15.7x) ===
+		df = pd.DataFrame(payloads)
+
+		# === ÉTAPE 2 : Nettoyage standard (same as _parse_json_line) ===
+		df = df.replace({"": np.nan, "True": True, "False": False})
+
+		# Conversion numérique (LightGBM exige des colonnes numériques)
+		for col in df.columns:
+			try:
+				df[col] = pd.to_numeric(df[col], errors='coerce')
+			except Exception:
+				pass
+
+		# === ÉTAPE 3 : Transformer de base (one-hot, dérivées, imputations) ===
+		df = self.base_transformer.transform(df)
+
+		return df
+
+	def transform_single(self, payload: dict) -> pd.DataFrame:
+		"""Transforme UN SEUL dict (payload JSON parsé) → DataFrame (1 ligne)."""
+		return self.transform_batch([payload])
+
+	def transform_one_sample(self, json_line: str) -> pd.DataFrame:
+		"""Parse un JSON string et transforme → DataFrame (1 ligne).
+
+		Point d'entrée principal dans app.py :
+			df = PREPROCESSOR.transform_one_sample(json_line)
+		"""
+		import json as _json
+		payload = _json.loads(json_line)
+		return self.transform_single(payload)
+
+	def get_feature_names_out(self) -> List[str]:
+		return list(self.expected_features)
