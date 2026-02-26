@@ -98,12 +98,16 @@ notebooks/mlflow.db
 *.jpeg
 *.pdf
 mlruns/
-notebooks/
+# notebooks/         # previously ignored entire directory, now allow individual .ipynb files
+# keep data out of repo
 data/
 datasets/
 *.parquet
 *.csv
 uv.lock
+# but we still want to track notebooks themselves
+!notebooks/*.ipynb
+!notebooks/**/*.ipynb
 
 # EXPLICATION : Logs de production - jamais commiter (contiennent des données sensibles)
 logs/
